@@ -79,3 +79,70 @@ minetest.register_craft({
     type = "shapeless",
     recipe = {"magic:water_bottle", "flowers:geranium"},
 })
+
+
+local ele_parts = function(pos)
+    for i=0,math.random(5,15) do
+        minetest.add_particle({
+            pos = vector.add(pos, vector.multiply({x=math.random()-0.5, y=math.random()-0.5, z=math.random()-0.5}, math.random() * 4)),
+            velocity = vector.multiply({x=math.random()-0.5, y=math.random()-0.5, z=math.random()-0.5}, math.random() * 2),
+            acceleration = vector.multiply({x=math.random()-0.5, y=math.random()*-5, z=math.random()-0.5}, math.random() * 4),
+            expirationtime = math.random() * 5,
+            size = math.random() * 10,
+            texture = "smoke_puff.png^[transform" .. math.random(0, 7),
+        })
+    end
+end
+
+minetest.register_entity("magic:explosive_launch_entity", {
+    physical = false,
+    timer = 0,
+    collisionbox = {-0.1,-0.1,-0.1,0.1,0.1,0.1},
+    textures = {"magic_essence.png^[opacity:0"},
+    visual_size = {x=0, y=0},
+
+    on_step = function(self, dtime)
+        self.timer = self.timer - dtime
+        if self.timer <= 0 then
+            self.object:remove()
+            ele_parts(self.p:getpos())
+            return
+        end
+        local pos = self.object:getpos()
+        if not magic.missile_passable(vector.add(pos, {x=0, y=1, z=0})) then
+            self.object:remove()
+            ele_parts(self.p:getpos())
+            return
+        end
+        if not magic.missile_passable(pos) then
+            self.object:remove()
+            ele_parts(self.p:getpos())
+            return
+        end
+    end,
+})
+
+magic.register_potion("magic:explosive_launch_potion", {
+    description = "Explosive Launch Potion",
+    color = "#B30",
+    on_use = function(itemstack, player)
+        local pos = player:get_pos()
+        local speed = math.random(10, 30)
+        local time = 1
+        local obj = minetest.add_entity(pos, "magic:explosive_launch_entity")
+        local dir = player:get_look_dir()
+        obj:setvelocity({x=dir.x*-speed, y=dir.y*-speed, z=dir.z*-speed})
+        obj:setacceleration({x=0, y=-8.5, z=0})
+        obj:setyaw(player:get_look_horizontal()+math.pi)
+        player:set_attach(obj, "", {x=0, y=0, z=0}, {x=0, y=0, z=0})
+        obj:get_luaentity().timer = time
+        obj:get_luaentity().p = player
+        return true
+    end,
+})
+
+minetest.register_craft({
+    output = "magic:explosive_launch_potion",
+    type = "shapeless",
+    recipe = {"magic:water_bottle", "magic:rage_essence", "magic:vitality_essence"},
+})
