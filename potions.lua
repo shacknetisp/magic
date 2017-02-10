@@ -82,13 +82,13 @@ minetest.register_craft({
 
 
 local ele_parts = function(pos)
-    for i=0,math.random(5,15) do
+    for i=0,math.random(1,3) do
         minetest.add_particle({
-            pos = vector.add(pos, vector.multiply({x=math.random()-0.5, y=math.random()-0.5, z=math.random()-0.5}, math.random() * 4)),
+            pos = vector.add(pos, vector.multiply({x=math.random()-0.5, y=math.random()-0.5, z=math.random()-0.5}, math.random())),
             velocity = vector.multiply({x=math.random()-0.5, y=math.random()-0.5, z=math.random()-0.5}, math.random() * 2),
             acceleration = vector.multiply({x=math.random()-0.5, y=math.random()*-5, z=math.random()-0.5}, math.random() * 4),
             expirationtime = math.random() * 5,
-            size = math.random() * 10,
+            size = math.random() * 5,
             texture = "smoke_puff.png^[transform" .. math.random(0, 7),
         })
     end
@@ -97,26 +97,33 @@ end
 minetest.register_entity("magic:explosive_launch_entity", {
     physical = false,
     timer = 0,
-    collisionbox = {-0.1,-0.1,-0.1,0.1,0.1,0.1},
-    textures = {"magic_essence.png^[opacity:0"},
+    parttimer = 0,
+    collisionbox = {0,0,0,0,0,0},
+    textures = {"default_cloud.png^[opacity:0"},
     visual_size = {x=0, y=0},
 
     on_step = function(self, dtime)
         self.timer = self.timer - dtime
-        if self.timer <= 0 then
+        self.parttimer = self.timer + dtime
+        if not self.p then
             self.object:remove()
-            ele_parts(self.p:getpos())
+            return
+        end
+        if self.timer <= 0 or self.object:getvelocity().y < 0 then
+            self.object:remove()
             return
         end
         local pos = self.object:getpos()
+        if self.parttimer > 0.3 then
+            ele_parts(pos)
+            self.parttimer = self.parttimer - 0.3
+        end
         if not magic.missile_passable(vector.add(pos, {x=0, y=1, z=0})) then
             self.object:remove()
-            ele_parts(self.p:getpos())
             return
         end
         if not magic.missile_passable(pos) then
             self.object:remove()
-            ele_parts(self.p:getpos())
             return
         end
     end,
@@ -126,13 +133,17 @@ magic.register_potion("magic:explosive_launch_potion", {
     description = "Explosive Launch Potion",
     color = "#B30",
     on_use = function(itemstack, player)
+        if not minetest.registered_nodes[minetest.get_node(vector.add(player:get_pos(), {x=0, y=-1, z=0})).name].walkable then
+            return false
+        end
         local pos = player:get_pos()
-        local speed = math.random(10, 30)
-        local time = 1
+        local speed = math.random(15, 20)
+        local time = 10
         local obj = minetest.add_entity(pos, "magic:explosive_launch_entity")
         local dir = player:get_look_dir()
-        obj:setvelocity({x=dir.x*-speed, y=dir.y*-speed, z=dir.z*-speed})
-        obj:setacceleration({x=0, y=-8.5, z=0})
+        local v = {x=dir.x*-speed, y=dir.y*-speed, z=dir.z*-speed}
+        obj:setvelocity(v)
+        obj:setacceleration({x=-(v.x / math.abs(v.y / 9.81)), y=-9.81, z=-(v.z / math.abs(v.y / 9.81))})
         obj:setyaw(player:get_look_horizontal()+math.pi)
         player:set_attach(obj, "", {x=0, y=0, z=0}, {x=0, y=0, z=0})
         obj:get_luaentity().timer = time
