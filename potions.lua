@@ -31,7 +31,7 @@ function magic.register_potion(name, def)
                 if player:get_inventory():room_for_item("main", "vessels:glass_bottle") then
                     player:get_inventory():add_item("main", "vessels:glass_bottle")
                 else
-                    minetest.add_item(pos, "vessels:glass_bottle")
+                    minetest.add_item(player:get_pos(), "vessels:glass_bottle")
                 end
                 itemstack:take_item()
             end
